@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>테트리스 대결 - Human vs AI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a1a;
+    color: #fff;
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 2rem;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #00f5ff, #ff00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 24px;
+    letter-spacing: 2px;
+  }
+
+  .game-area {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .player-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .player-label {
+    font-size: 1.1rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    padding: 6px 20px;
+    border-radius: 20px;
+  }
+
+  .player-label.human {
+    background: linear-gradient(90deg, #0044ff44, #00aaff44);
+    border: 1px solid #00aaff;
+    color: #00aaff;
+  }
+
+  .player-label.ai {
+    background: linear-gradient(90deg, #ff004444, #ff00aa44);
+    border: 1px solid #ff00aa;
+    color: #ff00aa;
+  }
+
+  .board-wrapper {
+    position: relative;
+  }
+
+  canvas {
+    display: block;
+    border: 2px solid #333;
+    border-radius: 4px;
+  }
+
+  canvas.human-canvas { border-color: #00aaff55; box-shadow: 0 0 20px #00aaff22; }
+  canvas.ai-canvas    { border-color: #ff00aa55; box-shadow: 0 0 20px #ff00aa22; }
+
+  .ai-overlay {
+    position: absolute;
+    inset: 0;
+    background: #0a0a1a99;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: #ff00aa;
+    letter-spacing: 1px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+
+  .ai-overlay.visible { opacity: 1; }
+
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 90px;
+  }
+
+  .info-box {
+    background: #111122;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: center;
+  }
+
+  .info-box .label {
+    font-size: 0.65rem;
+    color: #888;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .info-box .value {
+    font-size: 1.3rem;
+    font-weight: bold;
+  }
+
+  .info-box.human .value { color: #00aaff; }
+  .info-box.ai    .value { color: #ff00aa; }
+
+  .next-box {
+    background: #111122;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .next-box .label {
+    font-size: 0.65rem;
+    color: #888;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .center-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-width: 100px;
+    align-self: center;
+  }
+
+  .vs-badge {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #ffdd00;
+    text-shadow: 0 0 12px #ffdd0088;
+  }
+
+  button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+
+  button:hover  { transform: scale(1.05); }
+  button:active { transform: scale(0.97); }
+
+  #btnStart {
+    background: linear-gradient(90deg, #00aaff, #0044ff);
+    color: #fff;
+  }
+
+  #btnReset {
+    background: #222;
+    color: #aaa;
+    border: 1px solid #444;
+  }
+
+  .controls-hint {
+    font-size: 0.7rem;
+    color: #555;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  .controls-hint span { color: #888; }
+
+  .result-banner {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000000cc;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .result-banner.show { display: flex; }
+
+  .result-card {
+    background: #111122;
+    border: 2px solid #ffdd00;
+    border-radius: 16px;
+    padding: 40px 60px;
+    text-align: center;
+    box-shadow: 0 0 40px #ffdd0044;
+  }
+
+  .result-card h2 {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    color: #ffdd00;
+  }
+
+  .result-card p {
+    color: #aaa;
+    margin-bottom: 24px;
+    font-size: 0.95rem;
+  }
+
+  .speed-bar {
+    width: 100%;
+    height: 4px;
+    background: #222;
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+
+  .speed-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .speed-fill.human { background: #00aaff; }
+  .speed-fill.ai    { background: #ff00aa; }
+</style>
+</head>
+<body>
+
+<h1>TETRIS BATTLE</h1>
+<p class="subtitle">HUMAN VS AI</p>
+
+<div class="game-area">
+
+  <!-- 플레이어 (왼쪽) -->
+  <div class="player-section">
+    <div class="player-label human">PLAYER</div>
+    <div style="display:flex; gap:10px; align-items:flex-start;">
+      <div class="side-panel">
+        <div class="next-box">
+          <div class="label">NEXT</div>
+          <canvas id="human-next" width="80" height="80"></canvas>
+        </div>
+        <div class="info-box human">
+          <div class="label">SCORE</div>
+          <div class="value" id="human-score">0</div>
+        </div>
+        <div class="info-box human">
+          <div class="label">LINES</div>
+          <div class="value" id="human-lines">0</div>
+        </div>
+        <div class="info-box human">
+          <div class="label">LEVEL</div>
+          <div class="value" id="human-level">1</div>
+          <div class="speed-bar"><div class="speed-fill human" id="human-speed" style="width:10%"></div></div>
+        </div>
+      </div>
+      <div class="board-wrapper">
+        <canvas id="human-canvas" class="human-canvas" width="200" height="400"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 가운데 -->
+  <div class="center-panel">
+    <div class="vs-badge">VS</div>
+    <button id="btnStart">START</button>
+    <button id="btnReset">RESET</button>
+    <div class="controls-hint">
+      <span>← →</span> Move<br>
+      <span>↑</span> Rotate<br>
+      <span>↓</span> Soft Drop<br>
+      <span>SPACE</span> Hard Drop
+    </div>
+  </div>
+
+  <!-- AI (오른쪽) -->
+  <div class="player-section">
+    <div class="player-label ai">AI</div>
+    <div style="display:flex; gap:10px; align-items:flex-start;">
+      <div class="board-wrapper">
+        <canvas id="ai-canvas" class="ai-canvas" width="200" height="400"></canvas>
+        <div class="ai-overlay" id="ai-overlay">THINKING...</div>
+      </div>
+      <div class="side-panel">
+        <div class="next-box">
+          <div class="label">NEXT</div>
+          <canvas id="ai-next" width="80" height="80"></canvas>
+        </div>
+        <div class="info-box ai">
+          <div class="label">SCORE</div>
+          <div class="value" id="ai-score">0</div>
+        </div>
+        <div class="info-box ai">
+          <div class="label">LINES</div>
+          <div class="value" id="ai-lines">0</div>
+        </div>
+        <div class="info-box ai">
+          <div class="label">LEVEL</div>
+          <div class="value" id="ai-level">1</div>
+          <div class="speed-bar"><div class="speed-fill ai" id="ai-speed" style="width:10%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 결과 배너 -->
+<div class="result-banner" id="result-banner">
+  <div class="result-card">
+    <h2 id="result-title">GAME OVER</h2>
+    <p id="result-desc"></p>
+    <button id="btnPlayAgain" onclick="resetGame()">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+// ─── 상수 ──────────────────────────────────────────────────────────────────
+const COLS = 10, ROWS = 20, CELL = 20;
+const COLORS = {
+  I: '#00f5ff', O: '#ffdd00', T: '#cc44ff',
+  S: '#44ff88', Z: '#ff4444', J: '#4488ff', L: '#ff8844'
+};
+const GHOST_ALPHA = 0.2;
+
+// 모든 테트로미노 정의 (0도 기준)
+const PIECES = {
+  I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  O: [[1,1],[1,1]],
+  T: [[0,1,0],[1,1,1],[0,0,0]],
+  S: [[0,1,1],[1,1,0],[0,0,0]],
+  Z: [[1,1,0],[0,1,1],[0,0,0]],
+  J: [[1,0,0],[1,1,1],[0,0,0]],
+  L: [[0,0,1],[1,1,1],[0,0,0]],
+};
+const PIECE_KEYS = Object.keys(PIECES);
+
+// 레벨별 낙하 간격 (ms)
+function dropInterval(level) {
+  return Math.max(80, 800 - (level - 1) * 70);
+}
+
+// 점수 계산
+function lineScore(lines, level) {
+  const base = [0, 100, 300, 500, 800];
+  return (base[Math.min(lines, 4)] || 0) * level;
+}
+
+// ─── 행렬 유틸 ──────────────────────────────────────────────────────────────
+function rotateCW(matrix) {
+  const N = matrix.length;
+  return matrix[0].map((_, c) => matrix.map((row, r) => matrix[N - 1 - r][c]));
+}
+
+function matrixCells(matrix) {
+  const cells = [];
+  for (let r = 0; r < matrix.length; r++)
+    for (let c = 0; c < matrix[r].length; c++)
+      if (matrix[r][c]) cells.push([r, c]);
+  return cells;
+}
+
+// ─── 백 (board state) ───────────────────────────────────────────────────────
+function createBoard() {
+  return Array.from({length: ROWS}, () => Array(COLS).fill(null));
+}
+
+function cloneBoard(board) {
+  return board.map(row => [...row]);
+}
+
+function isValid(board, matrix, pr, pc) {
+  for (const [dr, dc] of matrixCells(matrix)) {
+    const r = pr + dr, c = pc + dc;
+    if (r >= ROWS || c < 0 || c >= COLS) return false;
+    if (r >= 0 && board[r][c]) return false;
+  }
+  return true;
+}
+
+function place(board, matrix, pr, pc, color) {
+  for (const [dr, dc] of matrixCells(matrix)) {
+    const r = pr + dr, c = pc + dc;
+    if (r >= 0) board[r][c] = color;
+  }
+}
+
+function clearLines(board) {
+  const kept = board.filter(row => row.some(c => !c));
+  const cleared = ROWS - kept.length;
+  const newBoard = [...Array.from({length: cleared}, () => Array(COLS).fill(null)), ...kept];
+  return {board: newBoard, cleared};
+}
+
+// ─── 피스 생성 ──────────────────────────────────────────────────────────────
+function randomKey() {
+  return PIECE_KEYS[Math.floor(Math.random() * PIECE_KEYS.length)];
+}
+
+function spawnPiece(key) {
+  const matrix = PIECES[key].map(r => [...r]);
+  const col = Math.floor((COLS - matrix[0].length) / 2);
+  return {key, matrix, row: -1, col};
+}
+
+// ─── 고스트 피스 위치 ────────────────────────────────────────────────────────
+function ghostRow(board, piece) {
+  let r = piece.row;
+  while (isValid(board, piece.matrix, r + 1, piece.col)) r++;
+  return r;
+}
+
+// ─── 렌더링 ─────────────────────────────────────────────────────────────────
+function drawBoard(ctx, board, piece, ghost) {
+  ctx.fillStyle = '#0d0d1f';
+  ctx.fillRect(0, 0, COLS * CELL, ROWS * CELL);
+
+  // 그리드
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 0.5;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      ctx.strokeRect(c * CELL, r * CELL, CELL, CELL);
+    }
+  }
+
+  // 고정 블록
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]) drawCell(ctx, c, r, board[r][c], 1.0);
+    }
+  }
+
+  // 고스트
+  if (ghost != null && piece) {
+    for (const [dr, dc] of matrixCells(piece.matrix)) {
+      drawCell(ctx, piece.col + dc, ghost + dr, COLORS[piece.key], GHOST_ALPHA);
+    }
+  }
+
+  // 현재 피스
+  if (piece) {
+    for (const [dr, dc] of matrixCells(piece.matrix)) {
+      const r = piece.row + dr;
+      if (r >= 0) drawCell(ctx, piece.col + dc, r, COLORS[piece.key], 1.0);
+    }
+  }
+}
+
+function drawCell(ctx, c, r, color, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
+  // 하이라이트
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, 4);
+  ctx.globalAlpha = 1;
+}
+
+function drawNext(ctx, key) {
+  ctx.fillStyle = '#111122';
+  ctx.fillRect(0, 0, 80, 80);
+  if (!key) return;
+  const matrix = PIECES[key];
+  const rows = matrix.length, cols = matrix[0].length;
+  const offX = Math.floor((4 - cols) / 2), offY = Math.floor((4 - rows) / 2);
+  const cs = 16;
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (matrix[r][c]) {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = COLORS[key];
+        ctx.fillRect((offX + c) * cs + 4, (offY + r) * cs + 4, cs - 1, cs - 1);
+      }
+}
+
+// ─── AI 휴리스틱 (Dellacherie 기반) ─────────────────────────────────────────
+function evalBoard(board) {
+  let aggHeight = 0, holes = 0, bumpiness = 0;
+  const heights = [];
+
+  for (let c = 0; c < COLS; c++) {
+    let h = 0;
+    for (let r = 0; r < ROWS; r++) {
+      if (board[r][c]) { h = ROWS - r; break; }
+    }
+    heights.push(h);
+    aggHeight += h;
+
+    let found = false;
+    for (let r = 0; r < ROWS; r++) {
+      if (board[r][c]) found = true;
+      else if (found) holes++;
+    }
+  }
+
+  for (let c = 0; c < COLS - 1; c++) bumpiness += Math.abs(heights[c] - heights[c + 1]);
+
+  // 완성된 줄 수
+  const lines = board.filter(row => row.every(c => c !== null)).length;
+
+  return -0.51 * aggHeight + 0.76 * lines - 0.36 * holes - 0.18 * bumpiness;
+}
+
+function bestMove(board, pieceKey) {
+  let best = null, bestScore = -Infinity;
+  let matrix = PIECES[pieceKey].map(r => [...r]);
+
+  for (let rot = 0; rot < 4; rot++) {
+    for (let col = -1; col < COLS; col++) {
+      // 착지 행 찾기
+      let row = 0;
+      while (isValid(board, matrix, row + 1, col)) row++;
+      if (!isValid(board, matrix, row, col)) continue;
+
+      const testBoard = cloneBoard(board);
+      place(testBoard, matrix, row, col, COLORS[pieceKey]);
+      const {board: cleared} = clearLines(testBoard);
+      const score = evalBoard(cleared);
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = {row, col, matrix: matrix.map(r => [...r])};
+      }
+    }
+    matrix = rotateCW(matrix);
+  }
+  return best;
+}
+
+// ─── 게임 상태 ──────────────────────────────────────────────────────────────
+let human, ai, running, animId;
+
+function makeState(isAI) {
+  const nextKey = randomKey();
+  return {
+    board: createBoard(),
+    piece: spawnPiece(randomKey()),
+    nextKey,
+    score: 0,
+    lines: 0,
+    level: 1,
+    dead: false,
+    isAI,
+    lastDrop: 0,
+    // AI 전용
+    aiMove: null,
+    aiStep: 0,
+    aiStepInterval: 80,
+    aiLastStep: 0,
+  };
+}
+
+function resetGame() {
+  if (animId) cancelAnimationFrame(animId);
+  human = makeState(false);
+  ai = makeState(true);
+  running = false;
+  document.getElementById('result-banner').classList.remove('show');
+  updateUI(human, 'human');
+  updateUI(ai, 'ai');
+  render();
+}
+
+function updateUI(state, who) {
+  document.getElementById(`${who}-score`).textContent = state.score;
+  document.getElementById(`${who}-lines`).textContent = state.lines;
+  document.getElementById(`${who}-level`).textContent = state.level;
+  const pct = Math.min(100, 10 + (state.level - 1) * 9);
+  document.getElementById(`${who}-speed`).style.width = pct + '%';
+}
+
+// ─── 피스 착지 및 다음 피스 ──────────────────────────────────────────────────
+function lockPiece(state) {
+  place(state.board, state.piece.matrix, state.piece.row, state.piece.col, COLORS[state.piece.key]);
+  const {board, cleared} = clearLines(state.board);
+  state.board = board;
+  state.lines += cleared;
+  state.score += lineScore(cleared, state.level);
+  state.level = Math.floor(state.lines / 10) + 1;
+
+  state.piece = spawnPiece(state.nextKey);
+  state.nextKey = randomKey();
+  state.aiMove = null;
+  state.aiStep = 0;
+
+  // 스폰 위치가 막히면 사망
+  if (!isValid(state.board, state.piece.matrix, state.piece.row, state.piece.col)) {
+    state.dead = true;
+  }
+}
+
+// ─── 루프 ────────────────────────────────────────────────────────────────────
+function gameLoop(ts) {
+  if (!running) return;
+
+  // 플레이어 드롭
+  if (!human.dead) {
+    if (ts - human.lastDrop > dropInterval(human.level)) {
+      human.lastDrop = ts;
+      if (isValid(human.board, human.piece.matrix, human.piece.row + 1, human.piece.col)) {
+        human.piece.row++;
+      } else {
+        lockPiece(human);
+        if (human.dead) endGame();
+      }
+      updateUI(human, 'human');
+    }
+  }
+
+  // AI 드롭
+  if (!ai.dead) {
+    // AI 목표 계산
+    if (!ai.aiMove) {
+      ai.aiMove = bestMove(ai.board, ai.piece.key);
+    }
+
+    if (ai.aiMove && ts - ai.aiLastStep > ai.aiStepInterval) {
+      ai.aiLastStep = ts;
+      const target = ai.aiMove;
+      // 회전 먼저
+      const curStr = JSON.stringify(ai.piece.matrix);
+      const tgtStr = JSON.stringify(target.matrix);
+      if (curStr !== tgtStr) {
+        const rotated = rotateCW(ai.piece.matrix);
+        if (isValid(ai.board, rotated, ai.piece.row, ai.piece.col))
+          ai.piece.matrix = rotated;
+      } else if (ai.piece.col < target.col) {
+        if (isValid(ai.board, ai.piece.matrix, ai.piece.row, ai.piece.col + 1))
+          ai.piece.col++;
+      } else if (ai.piece.col > target.col) {
+        if (isValid(ai.board, ai.piece.matrix, ai.piece.row, ai.piece.col - 1))
+          ai.piece.col--;
+      }
+    }
+
+    if (ts - ai.lastDrop > dropInterval(ai.level)) {
+      ai.lastDrop = ts;
+      if (isValid(ai.board, ai.piece.matrix, ai.piece.row + 1, ai.piece.col)) {
+        ai.piece.row++;
+      } else {
+        lockPiece(ai);
+        if (ai.dead) endGame();
+      }
+      updateUI(ai, 'ai');
+    }
+  }
+
+  render();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+function render() {
+  const hCtx = document.getElementById('human-canvas').getContext('2d');
+  const aCtx = document.getElementById('ai-canvas').getContext('2d');
+  const hNext = document.getElementById('human-next').getContext('2d');
+  const aNext = document.getElementById('ai-next').getContext('2d');
+
+  const hGhost = human.piece ? ghostRow(human.board, human.piece) : null;
+  const aGhost = ai.piece ? ghostRow(ai.board, ai.piece) : null;
+
+  drawBoard(hCtx, human.board, human.piece, hGhost);
+  drawBoard(aCtx, ai.board, ai.piece, aGhost);
+  drawNext(hNext, human.nextKey);
+  drawNext(aNext, ai.nextKey);
+}
+
+function endGame() {
+  running = false;
+  cancelAnimationFrame(animId);
+
+  const banner = document.getElementById('result-banner');
+  const title  = document.getElementById('result-title');
+  const desc   = document.getElementById('result-desc');
+
+  if (human.dead && ai.dead) {
+    title.textContent = 'DRAW!';
+    desc.textContent  = '동시에 게임오버!';
+  } else if (human.dead) {
+    title.textContent = 'AI WINS!';
+    desc.textContent  = `Player: ${human.score}점  |  AI: ${ai.score}점`;
+  } else {
+    title.textContent = 'YOU WIN!';
+    desc.textContent  = `Player: ${human.score}점  |  AI: ${ai.score}점`;
+  }
+  banner.classList.add('show');
+}
+
+// ─── 키보드 ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (!running || human.dead) return;
+  const p = human.piece;
+
+  if (e.key === 'ArrowLeft') {
+    if (isValid(human.board, p.matrix, p.row, p.col - 1)) p.col--;
+  } else if (e.key === 'ArrowRight') {
+    if (isValid(human.board, p.matrix, p.row, p.col + 1)) p.col++;
+  } else if (e.key === 'ArrowDown') {
+    if (isValid(human.board, p.matrix, p.row + 1, p.col)) {
+      p.row++;
+      human.score++;
+      human.lastDrop = performance.now();
+    }
+  } else if (e.key === 'ArrowUp') {
+    const rot = rotateCW(p.matrix);
+    // 월킥 시도
+    for (const kick of [0, -1, 1, -2, 2]) {
+      if (isValid(human.board, rot, p.row, p.col + kick)) {
+        p.matrix = rot;
+        p.col += kick;
+        break;
+      }
+    }
+  } else if (e.key === ' ') {
+    e.preventDefault();
+    const gr = ghostRow(human.board, p);
+    human.score += 2 * (gr - p.row);
+    p.row = gr;
+    lockPiece(human);
+    if (human.dead) endGame();
+    human.lastDrop = performance.now();
+    updateUI(human, 'human');
+  }
+  render();
+});
+
+// ─── 버튼 ────────────────────────────────────────────────────────────────────
+document.getElementById('btnStart').addEventListener('click', () => {
+  if (running) return;
+  running = true;
+  human.lastDrop = performance.now();
+  ai.lastDrop    = performance.now();
+  animId = requestAnimationFrame(gameLoop);
+});
+
+document.getElementById('btnReset').addEventListener('click', resetGame);
+
+// ─── 초기화 ──────────────────────────────────────────────────────────────────
+resetGame();
+</script>
+</body>
+</html>

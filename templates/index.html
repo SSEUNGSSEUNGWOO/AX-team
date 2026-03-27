@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AX Team Office</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="header">
+    <div class="header-left"><span class="logo">🏢</span><h1>AX Team Office</h1></div>
+    <div class="mode-switch">
+      <button class="mode-btn active" id="btn-team" onclick="setMode('team')">팀 회의</button>
+      <button class="mode-btn" id="btn-individual" onclick="setMode('individual')">1:1 대화</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+
+    <!-- ── Office Canvas ── -->
+    <div class="office-section">
+      <div class="office-floor" id="office-floor">
+
+        <!-- Floor decoration -->
+        <div class="floor-grid"></div>
+        <div class="decision-toast" id="decision-toast"></div>
+
+        <!-- ── Round Table ── -->
+        <div class="round-table"></div>
+
+
+        <!-- ── Characters ── -->
+
+        <!-- 지훈 (팀장) -->
+        <div class="chibi" id="char-lead" data-agent="lead" style="--c:#2C2C2C;--cb:#888;left:40%;top:32%" onclick="onClickChar('lead')">
+          <div class="c-bubble" id="bubble-lead"><div class="c-btext" id="btext-lead"></div></div>
+          <div class="c-think" id="think-lead"><i></i><i></i><i></i></div>
+          <div class="c-figure" id="fig-lead">
+            <div class="c-head">
+              <div class="c-eyes">
+                <div class="c-eye"><div class="c-pupil"></div></div>
+                <div class="c-eye"><div class="c-pupil"></div></div>
+              </div>
+
+              <div class="c-mouth serious"></div>
+            </div>
+            <div class="c-body"><div class="c-tie"></div></div>
+            <div class="c-legs"><div class="c-leg"></div><div class="c-leg"></div></div>
+          </div>
+          <div class="c-nametag"><span class="c-badge" style="background:var(--c)">장</span>승우</div>
+        </div>
+
+        <!-- 지민 (마케팅) -->
+        <div class="chibi" id="char-jimin" data-agent="jimin" style="--c:#FF6B9D;--cb:#FF9EC0;left:19%;top:42%" onclick="onClickChar('jimin')">
+          <div class="c-bubble" id="bubble-jimin"><div class="c-btext" id="btext-jimin"></div></div>
+          <div class="c-think" id="think-jimin"><i></i><i></i><i></i></div>
+          <div class="c-figure" id="fig-jimin">
+            <div class="c-head">
+              <div class="c-eyes"><div class="c-eye"><div class="c-pupil"></div></div><div class="c-eye"><div class="c-pupil"></div></div></div>
+
+              <div class="c-mouth"></div>
+            </div>
+            <div class="c-body"></div>
+            <div class="c-legs"><div class="c-leg"></div><div class="c-leg"></div></div>
+          </div>
+          <div class="c-nametag"><span class="c-badge" style="background:var(--c)">지</span>지민</div>
+
+        </div>
+
+        <!-- 준혁 (개발) -->
+        <div class="chibi" id="char-junhyuk" data-agent="junhyuk" style="--c:#00B4A6;--cb:#5DDDD6;left:58%;top:42%" onclick="onClickChar('junhyuk')">
+          <div class="c-bubble" id="bubble-junhyuk"><div class="c-btext" id="btext-junhyuk"></div></div>
+          <div class="c-think" id="think-junhyuk"><i></i><i></i><i></i></div>
+          <div class="c-figure" id="fig-junhyuk">
+            <div class="c-head">
+              <div class="c-eyes"><div class="c-eye"><div class="c-pupil"></div></div><div class="c-eye"><div class="c-pupil"></div></div></div>
+
+              <div class="c-mouth"></div>
+            </div>
+            <div class="c-body"><div class="c-glasses"></div></div>
+            <div class="c-legs"><div class="c-leg"></div><div class="c-leg"></div></div>
+          </div>
+          <div class="c-nametag"><span class="c-badge" style="background:var(--c)">주</span>주혁</div>
+        </div>
+
+        <!-- 수아 (비즈니스) -->
+        <div class="chibi" id="char-yujin" data-agent="yujin" style="--c:#7C6AF0;--cb:#A99CF5;left:19%;top:54%" onclick="onClickChar('yujin')">
+          <div class="c-bubble" id="bubble-yujin"><div class="c-btext" id="btext-yujin"></div></div>
+          <div class="c-think" id="think-yujin"><i></i><i></i><i></i></div>
+          <div class="c-figure" id="fig-yujin">
+            <div class="c-head">
+              <div class="c-eyes"><div class="c-eye"><div class="c-pupil"></div></div><div class="c-eye"><div class="c-pupil"></div></div></div>
+
+              <div class="c-mouth"></div>
+            </div>
+            <div class="c-body"></div>
+            <div class="c-legs"><div class="c-leg"></div><div class="c-leg"></div></div>
+          </div>
+          <div class="c-nametag"><span class="c-badge" style="background:var(--c)">유</span>유진</div>
+        </div>
+
+        <!-- 재우 (기획) -->
+        <div class="chibi" id="char-suyoung" data-agent="suyoung" style="--c:#F59E0B;--cb:#FBCA63;left:58%;top:54%" onclick="onClickChar('suyoung')">
+          <div class="c-bubble" id="bubble-suyoung"><div class="c-btext" id="btext-suyoung"></div></div>
+          <div class="c-think" id="think-suyoung"><i></i><i></i><i></i></div>
+          <div class="c-figure" id="fig-suyoung">
+            <div class="c-head">
+              <div class="c-eyes"><div class="c-eye"><div class="c-pupil"></div></div><div class="c-eye"><div class="c-pupil"></div></div></div>
+
+              <div class="c-mouth"></div>
+            </div>
+            <div class="c-body"></div>
+            <div class="c-legs"><div class="c-leg"></div><div class="c-leg"></div></div>
+          </div>
+          <div class="c-nametag"><span class="c-badge" style="background:var(--c)">수</span>수영</div>
+        </div>
+
+        <!-- 민서 (데이터) -->
+        <div class="chibi" id="char-mina" data-agent="mina" style="--c:#EF4444;--cb:#F88;left:40%;top:60%" onclick="onClickChar('mina')">
+          <div class="c-bubble" id="bubble-mina"><div class="c-btext" id="btext-mina"></div></div>
+          <div class="c-think" id="think-mina"><i></i><i></i><i></i></div>
+          <div class="c-figure" id="fig-mina">
+            <div class="c-head">
+              <div class="c-eyes"><div class="c-eye"><div class="c-pupil"></div></div><div class="c-eye"><div class="c-pupil"></div></div></div>
+
+              <div class="c-mouth"></div>
+            </div>
+            <div class="c-body"></div>
+            <div class="c-legs"><div class="c-leg"></div><div class="c-leg"></div></div>
+          </div>
+          <div class="c-nametag"><span class="c-badge" style="background:var(--c)">민</span>민아</div>
+        </div>
+
+      </div><!-- /office-floor -->
+
+      <div class="phase-bar" id="phase-bar">
+        <div class="phase-step" id="phase-1"><div class="phase-dot">1</div><span>킥오프</span></div>
+        <div class="phase-line" id="pline-1"></div>
+        <div class="phase-step" id="phase-2"><div class="phase-dot">2</div><span>Round 1</span></div>
+        <div class="phase-line" id="pline-2"></div>
+        <div class="phase-step" id="phase-3"><div class="phase-dot">3</div><span>Round 2</span></div>
+        <div class="phase-line" id="pline-3"></div>
+        <div class="phase-step" id="phase-4"><div class="phase-dot">4</div><span>Round 3</span></div>
+      </div>
+    </div><!-- /office-section -->
+
+    <!-- ── Right Panel ── -->
+    <div class="right-panel">
+      <div class="log-panel" id="log-panel">
+        <div class="panel-title">💬 대화 로그</div>
+        <div class="log-list" id="log-list">
+          <div class="log-empty">태스크를 입력하면 팀이 함께 검토합니다.</div>
+        </div>
+      </div>
+      <div class="chat-panel hidden" id="chat-panel">
+        <div class="panel-title" id="chat-title">1:1 대화</div>
+        <div class="chat-history" id="chat-history"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="send-btn" onclick="sendChat()">전송</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-layout -->
+
+  <div class="input-bar" id="input-bar">
+    <div class="workflow-chips">
+      <button class="wf-chip wf-build"    onclick="setExample('구독형 AI 음악 앱 만들어줘')">
+        <span class="wf-type">build</span>
+        <span class="wf-flow">기획 → 코딩 → 검증</span>
+      </button>
+      <button class="wf-chip wf-plan"     onclick="setExample('사내 AI 도입 로드맵 기획해줘')">
+        <span class="wf-type">plan</span>
+        <span class="wf-flow">토론 → 문서</span>
+      </button>
+      <button class="wf-chip wf-feedback" onclick="setExample('이 기획서 피드백해줘')">
+        <span class="wf-type">feedback</span>
+        <span class="wf-flow">분석 → 종합</span>
+      </button>
+      <button class="wf-chip wf-discuss"  onclick="setExample('FastAPI vs Django 뭐가 나을까')">
+        <span class="wf-type">discuss</span>
+        <span class="wf-flow">토론 → 결론</span>
+      </button>
+      <button class="wf-chip wf-review"   onclick="setExample('이 코드 리뷰해줘')">
+        <span class="wf-type">review</span>
+        <span class="wf-flow">분석 → 토론</span>
+      </button>
+    </div>
+    <div class="input-row">
+      <div class="textarea-wrap">
+        <textarea id="task-input" class="task-input" placeholder="태스크를 입력하세요..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();onSubmit()}" rows="3"></textarea>
+        <div class="attach-bar" id="attach-bar">
+          <input type="file" id="file-input" accept="image/*,.pdf" style="display:none" onchange="onFileSelect(this)">
+          <button class="attach-btn" onclick="document.getElementById('file-input').click()">📎 이미지·PDF</button>
+          <span class="attach-name hidden" id="attach-name"></span>
+          <button class="attach-remove hidden" id="attach-remove" onclick="clearAttachment()">✕</button>
+        </div>
+      </div>
+      <div class="input-controls">
+        <button class="reset-btn hidden" id="reset-btn" onclick="resetAll()">↩ 초기화</button>
+        <button class="start-btn" id="start-btn" onclick="onSubmit()">🚀 자율 협업 시작</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>const AGENTS = {{ agents | tojson }};</script>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>쿠팡 가격 모니터</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1d1d1f; }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 32px 16px; }
+
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { color: #666; font-size: 14px; margin-bottom: 32px; }
+
+    /* 등록 폼 */
+    .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+
+    .form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    input[type="text"], input[type="number"] {
+      flex: 1; min-width: 160px; padding: 10px 12px;
+      border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+      outline: none; transition: border-color .2s;
+    }
+    input:focus { border-color: #0071e3; }
+
+    .btn {
+      padding: 10px 18px; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s; white-space: nowrap;
+    }
+    .btn-primary { background: #0071e3; color: white; }
+    .btn-primary:hover { background: #0077ed; }
+    .btn-danger  { background: #ff3b30; color: white; font-size: 12px; padding: 6px 12px; }
+    .btn-danger:hover { background: #e0352b; }
+
+    /* 상품 목록 */
+    .empty { color: #999; font-size: 14px; text-align: center; padding: 24px 0; }
+
+    .product-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0; border-bottom: 1px solid #f0f0f0; gap: 12px;
+    }
+    .product-item:last-child { border-bottom: none; }
+
+    .product-info { flex: 1; min-width: 0; }
+    .product-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-url  { font-size: 11px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .price-block { text-align: right; white-space: nowrap; }
+    .target-price  { font-size: 13px; color: #666; }
+    .current-price { font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .current-price.achieved { color: #30d158; }
+    .current-price.pending  { color: #1d1d1f; }
+    .current-price.unknown  { color: #999; font-weight: 400; font-size: 13px; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-top: 4px; }
+    .badge.achieved { background: #d4f5e0; color: #1a8a40; }
+    .badge.pending  { background: #f0f0f0; color: #666; }
+
+    /* 액션 버튼 */
+    .actions { display: flex; gap: 6px; align-items: center; }
+    .btn-check { background: #f5f5f5; color: #333; font-size: 12px; padding: 6px 12px; }
+    .btn-check:hover { background: #e8e8e8; }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1d1d1f; color: white; padding: 12px 20px;
+      border-radius: 8px; font-size: 14px; opacity: 0;
+      transition: opacity .3s; pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🛒 쿠팡 가격 모니터</h1>
+  <p class="subtitle">목표가 이하로 내려오면 알려드립니다.</p>
+
+  <div class="card">
+    <h2>상품 등록</h2>
+    <div class="form-row">
+      <input type="text" id="url-input" placeholder="쿠팡 상품 URL" style="flex:3;">
+      <input type="number" id="price-input" placeholder="목표가 (원)" min="1">
+      <input type="text" id="name-input" placeholder="별칭 (선택)">
+      <button class="btn btn-primary" onclick="addProduct()">등록</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>모니터링 목록</h2>
+    <div id="product-list"><p class="empty">등록된 상품이 없습니다.</p></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const BASE = '';
+
+  async function loadProducts() {
+    try {
+      const res = await fetch(`${BASE}/api/products`);
+      const products = await res.json();
+      renderList(products);
+    } catch (e) {
+      showToast('목록 로드 실패');
+    }
+  }
+
+  function renderList(products) {
+    const el = document.getElementById('product-list');
+    if (!products.length) {
+      el.innerHTML = '<p class="empty">등록된 상품이 없습니다.</p>';
+      return;
+    }
+    el.innerHTML = products.map(p => {
+      const achieved = p.last_price !== null && p.last_price <= p.target_price;
+      const priceText = p.last_price !== null ? `${p.last_price.toLocaleString()}원` : '미조회';
+      const priceClass = p.last_price === null ? 'unknown' : (achieved ? 'achieved' : 'pending');
+      const badgeClass = achieved ? 'achieved' : 'pending';
+      const badgeText  = achieved ? '✅ 달성' : '⏳ 대기';
+      return `
+        <div class="product-item" id="item-${p.id}">
+          <div class="product-info">
+            <div class="product-name">${p.name || p.id}</div>
+            <div class="product-url"><a href="${p.url}" target="_blank">${p.url}</a></div>
+          </div>
+          <div class="price-block">
+            <div class="target-price">목표 ${p.target_price.toLocaleString()}원</div>
+            <div class="current-price ${priceClass}">${priceText}</div>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="actions">
+            <button class="btn btn-check" onclick="checkPrice('${p.id}')">조회</button>
+            <button class="btn btn-danger" onclick="deleteProduct('${p.id}')">삭제</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function addProduct() {
+    const url   = document.getElementById('url-input').value.trim();
+    const price = parseInt(document.getElementById('price-input').value);
+    const name  = document.getElementById('name-input').value.trim();
+
+    if (!url || !price) { showToast('URL과 목표가를 입력하세요'); return; }
+
+    try {
+      const res = await fetch(`${BASE}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, target_price: price, name }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      document.getElementById('url-input').value = '';
+      document.getElementById('price-input').value = '';
+      document.getElementById('name-input').value = '';
+      showToast('등록 완료!');
+      loadProducts();
+    } catch (e) {
+      showToast(`등록 실패: ${e.message}`);
+    }
+  }
+
+  async function deleteProduct(id) {
+    if (!confirm('삭제하시겠습니까?')) return;
+    try {
+      await fetch(`${BASE}/api/products/${id}`, { method: 'DELETE' });
+      showToast('삭제 완료');
+      loadProducts();
+    } catch (e) {
+      showToast('삭제 실패');
+    }
+  }
+
+  async function checkPrice(id) {
+    showToast('가격 조회 중...');
+    try {
+      const res = await fetch(`${BASE}/api/products/${id}/check`, { method: 'POST' });
+      const data = await res.json();
+      if (data.price) showToast(`현재가: ${data.price.toLocaleString()}원`);
+      else showToast('가격 조회 실패 (봇 탐지 또는 JS 렌더링 필요)');
+      loadProducts();
+    } catch (e) {
+      showToast('조회 실패');
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  loadProducts();
+</script>
+</body>
+</html>

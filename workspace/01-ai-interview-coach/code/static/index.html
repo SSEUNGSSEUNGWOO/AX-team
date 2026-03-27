@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 면접 코치</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #F5F4F0;
+      --white: #FFFFFF;
+      --border: #E5E2DC;
+      --text: #1A1A1A;
+      --sub: #888;
+      --primary: #1A1A1A;
+      --accent: #4F46E5;
+      --green: #16A34A;
+      --red: #DC2626;
+      --yellow: #D97706;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    .container { max-width: 760px; margin: 0 auto; padding: 40px 20px; }
+
+    /* Header */
+    .header { text-align: center; margin-bottom: 48px; }
+    .header h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+    .header p { color: var(--sub); margin-top: 8px; font-size: 14px; }
+
+    /* Card */
+    .card { background: var(--white); border: 1px solid var(--border);
+            border-radius: 16px; padding: 28px; margin-bottom: 20px; }
+
+    /* Setup */
+    .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .field label { display: block; font-size: 12px; font-weight: 600;
+                   color: var(--sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .field select, .field input[type=number] {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: 10px; font-size: 14px; background: var(--bg);
+      appearance: none; cursor: pointer; outline: none;
+    }
+    .field select:focus, .field input:focus { border-color: var(--accent); }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px;
+           border-radius: 10px; font-size: 14px; font-weight: 600;
+           border: none; cursor: pointer; transition: opacity 0.15s; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; width: 100%; justify-content: center; }
+    .btn-primary:hover:not(:disabled) { background: #333; }
+    .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover:not(:disabled) { background: var(--bg); }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-accent:hover:not(:disabled) { background: #4338CA; }
+
+    /* Progress */
+    .progress-bar { height: 4px; background: var(--border); border-radius: 4px; margin-bottom: 24px; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+
+    /* Question */
+    .question-num { font-size: 12px; color: var(--sub); font-weight: 600;
+                    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+    .question-text { font-size: 18px; font-weight: 700; line-height: 1.5; margin-bottom: 20px; }
+    .question-cat { display: inline-block; padding: 3px 10px; border-radius: 20px;
+                    font-size: 11px; font-weight: 600; background: #EEF2FF; color: var(--accent);
+                    margin-bottom: 20px; }
+
+    textarea { width: 100%; min-height: 120px; padding: 14px; border: 1px solid var(--border);
+               border-radius: 10px; font-size: 14px; line-height: 1.6; resize: vertical;
+               font-family: inherit; outline: none; background: var(--bg); }
+    textarea:focus { border-color: var(--accent); background: var(--white); }
+
+    .answer-actions { display: flex; gap: 10px; margin-top: 14px; justify-content: flex-end; }
+
+    /* Loading */
+    .loading { display: flex; align-items: center; gap: 10px; color: var(--sub);
+               font-size: 14px; padding: 16px 0; }
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border);
+               border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Feedback */
+    .feedback-section { margin-top: 8px; }
+    .feedback-section h3 { font-size: 13px; font-weight: 700; color: var(--sub);
+                           text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+    .score-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .score-item { text-align: center; background: var(--bg); border-radius: 12px; padding: 14px 10px; }
+    .score-value { font-size: 28px; font-weight: 800; }
+    .score-value.high { color: var(--green); }
+    .score-value.mid { color: var(--yellow); }
+    .score-value.low { color: var(--red); }
+    .score-label { font-size: 11px; color: var(--sub); margin-top: 4px; font-weight: 600; }
+
+    .star-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .star-item { background: var(--bg); border-radius: 10px; padding: 14px; }
+    .star-item .star-label { font-size: 11px; font-weight: 700; color: var(--accent);
+                              text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .star-item p { font-size: 13px; line-height: 1.5; color: var(--text); }
+
+    .tips-list { list-style: none; }
+    .tips-list li { font-size: 13px; line-height: 1.5; padding: 8px 0;
+                    border-bottom: 1px solid var(--border); display: flex; gap: 8px; }
+    .tips-list li:last-child { border-bottom: none; }
+    .tips-list li::before { content: '→'; color: var(--accent); flex-shrink: 0; font-weight: 700; }
+
+    .overall { background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px;
+               padding: 14px; font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
+
+    /* Missing */
+    .missing-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .missing-tag { background: #FEF2F2; color: var(--red); font-size: 11px;
+                   font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+
+    /* Nav between questions */
+    .question-nav { display: flex; align-items: center; justify-content: space-between;
+                    margin-top: 16px; }
+    .nav-dots { display: flex; gap: 6px; }
+    .nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+    .nav-dot.active { background: var(--accent); }
+    .nav-dot.done { background: var(--green); }
+
+    /* Summary */
+    .summary-row { display: flex; justify-content: space-between; align-items: center;
+                   padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-q { flex: 1; color: var(--sub); padding-right: 16px;
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .summary-scores { display: flex; gap: 8px; flex-shrink: 0; }
+    .badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+    .badge.high { background: #F0FDF4; color: var(--green); }
+    .badge.mid  { background: #FFFBEB; color: var(--yellow); }
+    .badge.low  { background: #FEF2F2; color: var(--red); }
+
+    .hidden { display: none !important; }
+    .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>AI 면접 코치</h1>
+    <p>직군별 예상 질문 생성 + STAR 구조 답변 피드백</p>
+  </div>
+
+  <!-- STEP 1: Setup -->
+  <div id="step-setup" class="card">
+    <div class="setup-grid">
+      <div class="field">
+        <label>직군</label>
+        <select id="job-role">
+          <option value="개발">개발</option>
+          <option value="마케팅">마케팅</option>
+          <option value="기획">기획</option>
+          <option value="디자인">디자인</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>경력</label>
+        <select id="career-level">
+          <option value="신입">신입</option>
+          <option value="3년">3년</option>
+          <option value="5년+">5년+</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>질문 수</label>
+        <input type="number" id="q-count" value="5" min="3" max="15">
+      </div>
+      <div class="field">
+        <label>세부 키워드 (선택)</label>
+        <input type="text" id="focus-area" placeholder="예: React, 브랜드마케팅" style="padding:10px 14px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg);width:100%;outline:none;">
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btn-generate" onclick="generateQuestions()">
+      질문 생성하기
+    </button>
+    <div id="loading-setup" class="loading hidden">
+      <div class="spinner"></div> 질문 생성 중...
+    </div>
+  </div>
+
+  <!-- STEP 2: Interview -->
+  <div id="step-interview" class="hidden">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+
+    <div class="card" id="question-card">
+      <div class="question-num" id="q-num"></div>
+      <div class="question-cat" id="q-cat"></div>
+      <div class="question-text" id="q-text"></div>
+
+      <textarea id="answer-input" placeholder="답변을 입력하세요..."></textarea>
+
+      <div class="answer-actions">
+        <button class="btn btn-outline" onclick="skipQuestion()">건너뛰기</button>
+        <button class="btn btn-accent" onclick="submitAnswer()">피드백 받기</button>
+      </div>
+
+      <div id="loading-feedback" class="loading hidden">
+        <div class="spinner"></div> 답변 분석 중...
+      </div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="card hidden" id="feedback-card">
+      <div class="feedback-section">
+        <h3>점수</h3>
+        <div class="score-grid" id="score-grid"></div>
+
+        <h3>STAR 분석</h3>
+        <div class="star-grid" id="star-grid"></div>
+
+        <div id="overall-comment" class="overall"></div>
+
+        <div id="missing-section" class="hidden" style="margin-bottom:20px">
+          <h3 style="margin-bottom:10px">부족한 부분</h3>
+          <div class="missing-tags" id="missing-tags"></div>
+        </div>
+
+        <h3>개선 팁</h3>
+        <ul class="tips-list" id="tips-list"></ul>
+      </div>
+
+      <div class="divider"></div>
+      <div class="question-nav">
+        <div class="nav-dots" id="nav-dots"></div>
+        <button class="btn btn-primary" id="btn-next" onclick="nextQuestion()">다음 질문 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Summary -->
+  <div id="step-summary" class="hidden">
+    <div class="card">
+      <h2 style="font-size:20px;font-weight:800;margin-bottom:20px">면접 결과 요약</h2>
+      <div id="summary-list"></div>
+      <div class="divider"></div>
+      <button class="btn btn-primary" onclick="restart()">다시 시작</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8001/api/v1';
+let questions = [];
+let current = 0;
+let results = [];
+
+async function generateQuestions() {
+  const role = document.getElementById('job-role').value;
+  const level = document.getElementById('career-level').value;
+  const count = parseInt(document.getElementById('q-count').value);
+  const focus = document.getElementById('focus-area').value;
+
+  document.getElementById('btn-generate').disabled = true;
+  document.getElementById('loading-setup').classList.remove('hidden');
+
+  try {
+    const res = await fetch(`${API}/questions/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_role: role, career_level: level, count, focus_area: focus || null }),
+    });
+    const data = await res.json();
+    questions = data.questions;
+    current = 0;
+    results = [];
+    showInterview();
+  } catch (e) {
+    alert('질문 생성 실패: ' + e.message);
+  } finally {
+    document.getElementById('btn-generate').disabled = false;
+    document.getElementById('loading-setup').classList.add('hidden');
+  }
+}
+
+function showInterview() {
+  document.getElementById('step-setup').classList.add('hidden');
+  document.getElementById('step-interview').classList.remove('hidden');
+  showQuestion();
+}
+
+function showQuestion() {
+  const q = questions[current];
+  document.getElementById('q-num').textContent = `질문 ${current + 1} / ${questions.length}`;
+  document.getElementById('q-cat').textContent = q.category;
+  document.getElementById('q-text').textContent = q.content;
+  document.getElementById('answer-input').value = '';
+  document.getElementById('feedback-card').classList.add('hidden');
+  document.getElementById('question-card').classList.remove('hidden');
+  document.getElementById('loading-feedback').classList.add('hidden');
+
+  const pct = (current / questions.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+
+  // nav dots
+  const dots = document.getElementById('nav-dots');
+  dots.innerHTML = questions.map((_, i) => {
+    const cls = i < current ? 'done' : i === current ? 'active' : '';
+    return `<div class="nav-dot ${cls}"></div>`;
+  }).join('');
+}
+
+async function submitAnswer() {
+  const answer = document.getElementById('answer-input').value.trim();
+  if (!answer) { document.getElementById('answer-input').focus(); return; }
+
+  document.getElementById('loading-feedback').classList.remove('hidden');
+  document.querySelector('.answer-actions').style.opacity = '0.4';
+  document.querySelector('.answer-actions').style.pointerEvents = 'none';
+
+  try {
+    const q = questions[current];
+    const role = document.getElementById('job-role').value;
+    const level = document.getElementById('career-level').value;
+
+    const res = await fetch(`${API}/feedback/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q.content, answer, job_role: role, career_level: level }),
+    });
+    const fb = await res.json();
+    results.push({ question: q, answer, feedback: fb });
+    showFeedback(fb);
+  } catch (e) {
+    alert('피드백 실패: ' + e.message);
+  } finally {
+    document.getElementById('loading-feedback').classList.add('hidden');
+    document.querySelector('.answer-actions').style.opacity = '';
+    document.querySelector('.answer-actions').style.pointerEvents = '';
+  }
+}
+
+function scoreClass(v) {
+  if (v >= 70) return 'high';
+  if (v >= 40) return 'mid';
+  return 'low';
+}
+
+function showFeedback(fb) {
+  document.getElementById('question-card').classList.add('hidden');
+  document.getElementById('feedback-card').classList.remove('hidden');
+
+  // Scores
+  const s = fb.score;
+  document.getElementById('score-grid').innerHTML = [
+    ['논리성', s.logic], ['구체성', s.specificity], ['직무적합성', s.job_fit]
+  ].map(([label, val]) => `
+    <div class="score-item">
+      <div class="score-value ${scoreClass(val)}">${val}</div>
+      <div class="score-label">${label}</div>
+    </div>`).join('');
+
+  // STAR
+  document.getElementById('star-grid').innerHTML = [
+    ['S — Situation', fb.star_situation],
+    ['T — Task', fb.star_task],
+    ['A — Action', fb.star_action],
+    ['R — Result', fb.star_result],
+  ].map(([label, text]) => `
+    <div class="star-item">
+      <div class="star-label">${label}</div>
+      <p>${text || '언급 없음'}</p>
+    </div>`).join('');
+
+  // Overall
+  document.getElementById('overall-comment').textContent = fb.overall_comment;
+
+  // Missing
+  if (fb.missing_elements?.length) {
+    document.getElementById('missing-section').classList.remove('hidden');
+    document.getElementById('missing-tags').innerHTML =
+      fb.missing_elements.map(m => `<span class="missing-tag">${m}</span>`).join('');
+  } else {
+    document.getElementById('missing-section').classList.add('hidden');
+  }
+
+  // Tips
+  document.getElementById('tips-list').innerHTML =
+    (fb.improvement_tips || []).map(t => `<li>${t}</li>`).join('');
+
+  // Next button
+  const isLast = current === questions.length - 1;
+  document.getElementById('btn-next').textContent = isLast ? '결과 보기' : '다음 질문 →';
+
+  // Nav dots update
+  const dots = document.getElementById('nav-dots');
+  dots.innerHTML = questions.map((_, i) => {
+    const cls = i <= current ? 'done' : '';
+    return `<div class="nav-dot ${cls}"></div>`;
+  }).join('');
+}
+
+function nextQuestion() {
+  if (current === questions.length - 1) {
+    showSummary();
+  } else {
+    current++;
+    showQuestion();
+  }
+}
+
+function skipQuestion() {
+  results.push({ question: questions[current], answer: null, feedback: null });
+  if (current === questions.length - 1) showSummary();
+  else { current++; showQuestion(); }
+}
+
+function showSummary() {
+  document.getElementById('step-interview').classList.add('hidden');
+  document.getElementById('step-summary').classList.remove('hidden');
+  document.getElementById('progress-fill').style.width = '100%';
+
+  const list = document.getElementById('summary-list');
+  list.innerHTML = results.map((r, i) => {
+    if (!r.feedback) {
+      return `<div class="summary-row">
+        <span class="summary-q">${i+1}. ${r.question.content}</span>
+        <span style="color:var(--sub);font-size:12px">건너뜀</span>
+      </div>`;
+    }
+    const s = r.feedback.score;
+    return `<div class="summary-row">
+      <span class="summary-q">${i+1}. ${r.question.content}</span>
+      <div class="summary-scores">
+        <span class="badge ${scoreClass(s.logic)}">논 ${s.logic}</span>
+        <span class="badge ${scoreClass(s.specificity)}">구 ${s.specificity}</span>
+        <span class="badge ${scoreClass(s.job_fit)}">직 ${s.job_fit}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function restart() {
+  document.getElementById('step-summary').classList.add('hidden');
+  document.getElementById('step-setup').classList.remove('hidden');
+  document.getElementById('progress-fill').style.width = '0%';
+}
+</script>
+</body>
+</html>
