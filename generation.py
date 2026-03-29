@@ -57,7 +57,7 @@ def plan_code_structure(task: str, doc_summary: str, arch_consensus: str = "") -
         f"- static/index.html (프론트엔드 UI — 반드시 포함)\n"
         f"- README.md\n"
         f"반드시 JSON만 반환.",
-        max_tokens=500
+        max_tokens=1500
     )
     match = re.search(r'\[.*?\]', resp, re.DOTALL)
     if match:
@@ -90,7 +90,7 @@ def _collect_team_brief(task: str, context: str = ""):
         try:
             text, _ = agent_call(aid, task,
                 f"프로젝트: {task}{ctx_note}{prev_note}\n\n"
-                f"당신만의 관점에서 핵심 포인트 1가지만. 80자 이내.", 80)
+                f"당신만의 관점에서 핵심 포인트를 말하세요.", 1024)
             results[aid] = text
             yield sse({"type": "response", "agent": aid, "content": text, "ctx": "plan"})
         except Exception:
@@ -146,7 +146,7 @@ def write_project_docs(task: str, workspace: str, feedback: str = "", consensus:
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
         future_map = {}
         for agent_id, filename, prompt in doc_assignments:
-            future_map[executor.submit(doc_call, agent_id, task, prompt, 1500)] = (agent_id, filename)
+            future_map[executor.submit(doc_call, agent_id, task, prompt, 8192)] = (agent_id, filename)
             time.sleep(_CALL_STAGGER)
         for future in as_completed(future_map):
             agent_id, filename = future_map[future]
@@ -185,12 +185,43 @@ def write_code_files(task: str, workspace: str, doc_summary: str,
             else:
                 yield item
 
+        # ── 파일 분담 토론 ───────────────────────────────────────
+        file_list_str = "\n".join(f"- {fi['path']}: {fi['description']}" for fi in file_plan)
+        assignments: dict[str, str] = {}  # path → agent_id
+        CLAIM_AGENTS = ["suyoung", "jimin", "junhyuk", "yujin", "mina", "lead"]
+        for aid in CLAIM_AGENTS:
+            yield sse({"type": "thinking", "agent": aid})
+            try:
+                resp, _ = agent_call(aid, task,
+                    f"파일 구조가 확정됐습니다:\n{file_list_str}\n\n"
+                    f"이미 배정된 파일: {list(assignments.keys()) if assignments else '없음'}\n"
+                    f"당신의 전문성에 맞는 파일을 골라 맡겠다고 선언하세요.\n"
+                    f"반드시 마지막에 [CLAIM: code/파일명.py, ...] 형식으로 명시하세요.",
+                    max_tokens=120,
+                )
+                yield sse({"type": "response", "agent": aid, "content": resp, "ctx": "kickoff"})
+                m = re.search(r'\[CLAIM:\s*([^\]]+)\]', resp)
+                if m:
+                    for raw_path in m.group(1).split(','):
+                        p = raw_path.strip()
+                        if p and p not in assignments:
+                            assignments[p] = aid
+            except Exception:
+                pass
+            time.sleep(_CALL_STAGGER)
+
+        # 미배정 파일은 기본 배정
+        for fi in file_plan:
+            if fi["path"] not in assignments:
+                assignments[fi["path"]] = _pick_code_agent(fi["path"])
+
         generated: dict[str, str] = {}
     else:
         file_plan = prev_file_plan or [{"path": p, "description": "수정"}
                                        for p in prev_generated.keys()]
         generated = dict(prev_generated)
         code_brief = ""
+        assignments = {fi["path"]: _pick_code_agent(fi["path"]) for fi in file_plan}
 
     feedback_note = f"\n\n코드리뷰 피드백 반영: {review_feedback}" if review_feedback else ""
     code_brief_block = f"\n\n【팀 전원 코드 요구사항 — 반드시 반영】\n{code_brief}" if code_brief else ""
@@ -200,13 +231,8 @@ def write_code_files(task: str, workspace: str, doc_summary: str,
         for fi in file_plan
     )
 
-    for file_info in file_plan:
-        doc_label = f"{file_info['path']} (수정)" if review_feedback else file_info['path']
-        agent_id = _pick_code_agent(file_info['path'])
-        yield sse({"type": "writing_doc", "agent": agent_id, "doc": doc_label})
-
     def make_code_prompt(fpath: str, fdesc: str) -> tuple[str, str]:
-        agent_id = _pick_code_agent(fpath)
+        agent_id = assignments.get(fpath) or _pick_code_agent(fpath)
         is_frontend = agent_id == "mina"
 
         interface_ctx = (
@@ -245,12 +271,15 @@ def write_code_files(task: str, workspace: str, doc_summary: str,
 
         raw, truncated = doc_call(agent_id, task, full_prompt, max_tokens=8192, return_meta=True)
         code = extract_code(raw)
+        _last = repr(code.rstrip().splitlines()[-1]) if code.strip() else '(empty)'
+        print(f"[GEN] {fpath} 초기생성: {len(code.splitlines())}줄, stop_reason=max_tokens:{truncated}, is_truncated:{is_truncated(code)}, 마지막줄: {_last}")
 
         # 잘림 감지 시 최대 3회 이어쓰기 (긴 파일도 대응)
         # API stop_reason=="max_tokens" 우선, 휴리스틱은 보조
-        for _ in range(3):
+        for i in range(3):
             if not truncated and not is_truncated(code):
                 break
+            print(f"[GEN] {fpath} 이어쓰기 {i+1}회차 시작 (truncated={truncated})")
             continuation_raw, truncated = doc_call(agent_id, task,
                 f"다음 코드가 중간에 잘렸습니다. 잘린 부분 바로 다음부터 이어서 완성하세요.\n"
                 f"```\n{code[-600:]}\n```\n"
@@ -259,30 +288,30 @@ def write_code_files(task: str, workspace: str, doc_summary: str,
                 return_meta=True,
             )
             continuation = extract_code(continuation_raw)
+            print(f"[GEN] {fpath} 이어쓰기 {i+1}회차 결과: continuation={len(continuation)}자, continuation_raw={len(continuation_raw)}자, continuation 앞50자: {repr(continuation[:50])}")
             if not continuation:
+                print(f"[GEN] {fpath} continuation 비어있음 → break. raw 전체:\n{continuation_raw[:300]}")
                 break
             code = code + "\n" + continuation
+            print(f"[GEN] {fpath} 합산 후: {len(code.splitlines())}줄, is_truncated:{is_truncated(code)}")
 
+        print(f"[GEN] {fpath} 최종: {len(code.splitlines())}줄")
         return fpath, agent_id, code
 
-    with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
-        future_map = {}
-        for fi in file_plan:
-            future_map[executor.submit(generate_file, fi)] = fi
-            time.sleep(_CALL_STAGGER)
-        for future in as_completed(future_map):
-            fi = future_map[future]
-            fpath = fi["path"]
-            try:
-                fpath, agent_id, code = future.result()
-            except Exception as e:
-                agent_id = _pick_code_agent(fpath)
-                code = f"# 생성 실패: {e}"
-                yield sse({"type": "error", "msg": f"{fpath} 생성 실패: {e}"})
-            write_workspace(workspace, fpath, code)
-            generated[fpath] = code
-            yield sse({"type": "doc_saved", "agent": agent_id,
-                       "file": fpath, "path": f"{workspace}/{fpath}"})
+    for fi in file_plan:
+        fpath = fi["path"]
+        agent_id = assignments.get(fpath) or _pick_code_agent(fpath)
+        yield sse({"type": "writing_doc", "agent": agent_id,
+                   "doc": f"{fpath} (수정)" if review_feedback else fpath})
+        try:
+            fpath, agent_id, code = generate_file(fi)
+        except Exception as e:
+            code = f"# 생성 실패: {e}"
+            yield sse({"type": "error", "msg": f"{fpath} 생성 실패: {e}"})
+        write_workspace(workspace, fpath, code)
+        generated[fpath] = code
+        yield sse({"type": "doc_saved", "agent": agent_id,
+                   "file": fpath, "path": f"{workspace}/{fpath}"})
 
     yield CodeSignal(file_plan=file_plan, generated=generated)
 

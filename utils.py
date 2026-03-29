@@ -1,13 +1,16 @@
 # 공통 유틸 — Anthropic 클라이언트, SSE 포맷터, agent_call/doc_call API 래퍼
 
-import json, re, queue, threading, contextvars, time
+import json, re, queue, threading, contextvars, time, os
 from typing import Generator, Any, Callable, TypeVar
 import anthropic
+from dotenv import load_dotenv
 from agents import AGENTS
+
+load_dotenv()
 
 T = TypeVar("T")
 
-client = anthropic.Anthropic()
+client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 MODEL_FAST  = "claude-haiku-4-5-20251001"  # 토론 발언, 짧은 반응
 MODEL_SMART = "claude-sonnet-4-6"           # 문서/코드 생성, 판단, tool-use
 MODEL = MODEL_SMART  # 하위 호환
@@ -113,7 +116,10 @@ def doc_call(agent_id: str, task: str, prompt: str, max_tokens: int = 800,
              return_meta: bool = False):
     """문서/코드 생성 전용 — rate limit 대응: 기본 1200토큰 + 429 시 재시도.
     return_meta=True 시 (text, truncated: bool) 튜플 반환."""
-    base_system = AGENTS[agent_id]['system'].split('[NEXT')[0].strip()
+    base_system = AGENTS[agent_id]['system'].split('[NEXT')[0]
+    # 토론용 글자수 제한 제거 (문서/코드 생성에는 적용 안 함)
+    base_system = re.sub(r'반드시 한국어로.*?끝낼 것\.\n?', '', base_system)
+    base_system = re.sub(r'토론 중 코드 작성 금지[^\n]*\n?', '', base_system).strip()
 
     def _call():
         return client.messages.create(
@@ -139,7 +145,9 @@ def tool_agent_call(agent_id: str, task: str, prompt: str,
     from tools import TOOL_DEFINITIONS, execute_tool
 
     model_to_use = model or MODEL_SMART
-    base_system = AGENTS[agent_id]['system'].split('[NEXT')[0].strip()
+    base_system = AGENTS[agent_id]['system'].split('[NEXT')[0]
+    base_system = re.sub(r'반드시 한국어로.*?끝낼 것\.\n?', '', base_system)
+    base_system = re.sub(r'토론 중 코드 작성 금지[^\n]*\n?', '', base_system).strip()
     messages = [{"role": "user", "content": _build_content(prompt)}]
 
     for _ in range(max_rounds):

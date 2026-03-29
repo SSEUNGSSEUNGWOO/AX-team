@@ -39,12 +39,12 @@ function clearAttachment() {
 
 // ── Positions ──────────────────────────────────────────────────
 const DESK_POS = {
-  lead:    { x: 40, y: 32 },
-  jimin:   { x: 19, y: 42 },
-  junhyuk: { x: 58, y: 42 },
-  yujin:   { x: 19, y: 54 },
-  suyoung: { x: 58, y: 54 },
-  mina:    { x: 40, y: 60 },
+  lead:    { x: 40, y: 23 },
+  jimin:   { x: 16, y: 43 },
+  junhyuk: { x: 64, y: 43 },
+  yujin:   { x: 16, y: 65 },
+  suyoung: { x: 64, y: 65 },
+  mina:    { x: 40, y: 78 },
 };
 
 
@@ -88,15 +88,41 @@ function moveCharacter(agentId, pos) {
 }
 
 // ── Bubble ─────────────────────────────────────────────────────
+function stripMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/\n+/g, ' ')
+    .trim();
+}
+
 function showBubble(agentId, text) {
   const bubble = document.getElementById(`bubble-${agentId}`);
   const btext  = document.getElementById(`btext-${agentId}`);
   if (!bubble) return;
   const agent = AGENTS[agentId];
-  const flat = text.replace(/\n+/g, ' ').trim();
-  btext.textContent = flat.length > 80 ? flat.slice(0, 80) + '…' : flat;
+  const flat = stripMarkdown(text);
+  btext.textContent = flat.length > 140 ? flat.slice(0, 140) + '…' : flat;
   bubble.style.borderColor = agent.color + '90';
+
+  // 화면 경계 넘침 방지
+  bubble.style.left = '50%';
+  bubble.style.transform = 'translateX(-50%) scale(1)';
   bubble.classList.add('show');
+  requestAnimationFrame(() => {
+    const rect = bubble.getBoundingClientRect();
+    const floor = document.getElementById('office-floor').getBoundingClientRect();
+    if (rect.left < floor.left + 6) {
+      bubble.style.left = '0%';
+      bubble.style.transform = 'translateX(0%) scale(1)';
+    } else if (rect.right > floor.right - 6) {
+      bubble.style.left = '100%';
+      bubble.style.transform = 'translateX(-100%) scale(1)';
+    }
+  });
   clearTimeout(bubbleTimers[agentId]);
   bubbleTimers[agentId] = setTimeout(() => hideBubble(agentId), 9000);
 }
@@ -635,7 +661,7 @@ function addLogEntry(agentId, content, ctx = null, intention = null) {
       <span class="log-role">${agent.role}</span>
       ${ctxLabel ? `<span class="log-ctx">${ctxLabel}</span>` : ''}
     </div>
-    <div class="log-content">${escapeHtml(content)}</div>
+    <div class="log-content">${escapeHtml(stripMarkdown(content))}</div>
     ${intentHtml}`;
   list.appendChild(entry);
   list.scrollTop = list.scrollHeight;
@@ -689,7 +715,7 @@ function addLogConsensus(content) {
   div.className = 'log-consensus';
   div.innerHTML = `
     <div class="log-consensus-header">✅ 팀 합의</div>
-    <div class="log-consensus-body">${escapeHtml(content)}</div>`;
+    <div class="log-consensus-body">${escapeHtml(stripMarkdown(content))}</div>`;
   list.appendChild(div);
   list.scrollTop = list.scrollHeight;
 }
@@ -726,7 +752,7 @@ function addLogSynthesis(content) {
   const list = document.getElementById('log-list');
   const entry = document.createElement('div');
   entry.className = 'log-synthesis';
-  entry.innerHTML = `<div class="log-phase-header">✅ 최종 결론</div><div class="log-content" style="margin-top:7px">${escapeHtml(content)}</div>`;
+  entry.innerHTML = `<div class="log-phase-header">✅ 최종 결론</div><div class="log-content" style="margin-top:7px">${escapeHtml(stripMarkdown(content))}</div>`;
   list.appendChild(entry);
   list.scrollTop = list.scrollHeight;
 }
@@ -785,6 +811,17 @@ function addLogCodeResult(ev) {
   list.appendChild(div);
   list.scrollTop = list.scrollHeight;
 }
+
+// ── Init positions ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  Object.keys(DESK_POS).forEach(id => {
+    const el = document.getElementById(`char-${id}`);
+    if (el) {
+      el.style.left = DESK_POS[id].x + '%';
+      el.style.top  = DESK_POS[id].y + '%';
+    }
+  });
+});
 
 // ── Utils ──────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

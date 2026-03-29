@@ -67,7 +67,7 @@ def deliberate(task: str, topic: str, agents: list[str], rounds: int = 2,
             yield sse({"type": "thinking", "agent": aid})
             try:
                 text = tool_agent_call(aid, task, prompt,
-                                       workspace=workspace, max_tokens=400,
+                                       workspace=workspace, max_tokens=1024,
                                        model=call_model)
                 text = strip_next(text)
                 history.append((aid, text))
@@ -85,9 +85,9 @@ def deliberate(task: str, topic: str, agents: list[str], rounds: int = 2,
         try:
             req = tool_agent_call(aid, task,
                 f"토론 결과:\n{full_convo}\n\n"
-                f"당신 성향에서 이 결과물에 반드시 반영되어야 할 핵심 요구사항 1가지를 구체적으로. 50자 이내.",
+                f"당신 성향에서 이 결과물에 반드시 반영되어야 할 핵심 요구사항 1가지를 한 문장으로.",
                 workspace=workspace,
-                max_tokens=150,
+                max_tokens=1024,
                 model=MODEL_FAST,  # 짧은 요구사항 표명 — Haiku로 충분
             )
             req = strip_next(req)
@@ -163,7 +163,7 @@ def team_gate(task: str, artifact_summary: str, round_label: str,
                 f"{{\"vote\": \"PASS\" or \"BLOCK\", \"reason\": \"한 줄 이유\", "
                 f"\"missing\": \"반영 안 된 항목 (BLOCK시만, 없으면 빈 문자열)\"}}",
                 workspace=workspace,
-                max_tokens=500,
+                max_tokens=1024,
             )
             m = re.search(r'\{.*?\}', resp, re.DOTALL)
             if m:
